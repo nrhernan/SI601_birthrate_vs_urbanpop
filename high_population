@@ -1,0 +1,25 @@
+import csv
+import itertools
+from hw1_p2 import out_list_sort
+from hw1_p1 import avpop
+from hw1_p1 import fld1
+
+lst_reg_sort = sorted(out_list_sort, key=lambda x:x['Region'])
+
+grplst = []
+grp_fld = 'Region'
+
+for k, group in itertools.groupby(lst_reg_sort, key=lambda x:x[grp_fld]):
+    copygrp = sorted(group, key=lambda x:x[avpop], reverse=True)
+    grplst.append({grp_fld:copygrp[0][grp_fld], fld1:copygrp[0][fld1]})
+
+print 'Output list \'o dictionaries assembled'
+
+with open('si601_hw1_step3_naomirh.csv', 'wb') as fout:
+    field_names = ['Region', fld1]
+    writer = csv.DictWriter(fout, fieldnames = field_names)
+    
+    writer.writeheader()
+    for i in grplst:
+        writer.writerow(i)
+    
