@@ -1,0 +1,136 @@
+#Script reads the world_bank_indicators.txt file and returns a CSV file named country_data_step1_desired_output.csv
+#Step 1: read file
+#Fields of interest: CountryName
+
+#testing open argument
+import csv
+import math
+
+ifile = 'world_bank_indicators.txt'
+rdict_conv = []
+fld1 = 'Country Name'
+fld2 = 'Population: Total (count)'
+fld3 = 'Population: Urban (count)'
+fld4 = 'Population:: Birth rate, crude (per 1,000)'
+fld_set = set([fld2, fld3, fld4]) #Fields of interest not including id
+avpop = 'Average Population'
+avurpop = 'Average Urban Population'
+urrat = 'Average Urban Population Ratio'
+avbirth = 'Average Birth Rate, per 1,000'
+avbirthln = 'Average Birth Rate' #adjusted per person and -ln
+
+#Creates a list of dictionaries from csv dict writer (a copy, essentially)
+def convert(dictread):
+    csvlist = []
+    for row in dictread:
+        csvlist.append(row)
+    return csvlist
+
+#Creates a dictionary with country names
+def f1(myconv):
+    country_dict = {}
+    for i in myconv:
+        if i['Country Name'] in country_dict:
+            continue
+        else:
+            country_dict[i['Country Name']] = country_dict.get(i['Country Name'])
+    return country_dict
+
+#Takes rows from csv dict writer object and adds values to appropriate list
+def f2(myconv):
+    countries = f1(myconv)
+    for i in countries:
+        countries[i] = {fld1:i, fld2:[], fld3:[], fld4:[]}
+    for row in myconv:
+        countries[row[fld1]][fld2].append(row[fld2])
+        countries[row[fld1]][fld3].append(row[fld3])
+        countries[row[fld1]][fld4].append(row[fld4])
+    return countries
+       
+#Generates a new field which is the average of the values in an old field
+def avg_fld(dict_pop, oldfield, newfield): #takes the new field name and the old field, averages the values in the old field and populates the new key with that value
+    for k in dict_pop: #each country dictionary ('k' is a country)
+        numfld = 0.0
+        denfld = 0.0
+        for num in dict_pop[k][oldfield]: #steps through list of values
+            if num == '':
+                continue
+            else:
+                numfld += float(num.replace(',', ''))
+                denfld += 1
+        if denfld == 0.0:
+            dict_pop[k][newfield]='No values reported'
+        else:
+            dict_pop[k][newfield]=(numfld/denfld)
+
+#Takes aggregated dictionary, creates a new list of dictionaries with specific fields
+
+#open and read the original datafile as a csv Dict reader
+with open(ifile, 'rb') as csvfile:
+    reader = csv.DictReader(csvfile, delimiter = '\t', quotechar='"')
+    rdict_conv = convert(reader) #create a copy of the list of dictionaries to use multiple times
+
+#Aggregation by country    
+conv_pop = f2(rdict_conv) #aggregates values in fields of interest by country, discards other data
+
+#Average calculations
+avg_fld(conv_pop, fld2, avpop) #apopulation
+avg_fld(conv_pop, fld3, avurpop) #urban population
+avg_fld(conv_pop, fld4, avbirth) #birth rate per 1K
+
+#Converts average birth rate per 1K to -ln(average birth per person)
+for k in conv_pop:
+    try: #countries that didn't report any birthrates will have a string in avbirth, strings not divisible
+        avperperson = (conv_pop[k][avbirth])/1000 #converts from per 1,000 to per person
+        conv_pop[k][avbirthln] = (-1)*(math.log(avperperson)) #applies -ln function
+    except:
+        conv_pop[k][avbirthln] = conv_pop[k][avbirth]
+
+#Creates the key value pair in conv_pop for average urban population
+for k in conv_pop:
+    try: #countries that didn't report any urban population will have a string in avurpop, no math on strings
+        conv_pop[k][urrat]=(conv_pop[k][avurpop])/(conv_pop[k][avpop])
+    except:
+        conv_pop[k][urrat] = conv_pop[k][avurpop]
+
+#Create a list of dictionaries to ultimately feed to csv.DictWriter, sort by urban ratio and avg birth decreasing
+out_list = [v for k, v in conv_pop.items()]
+out_list_sort = sorted(out_list, key=lambda x:(x[urrat], x[avbirthln]), reverse=True)
+
+with open('si601_hw1_step1_naomirh.csv', 'wb') as outcsv:
+    field_names = [fld1, avpop, avurpop, urrat, avbirthln]
+    writer = csv.DictWriter(outcsv, fieldnames = field_names)
+    
+    writer.writeheader()
+    for i in out_list_sort:
+        if type(i[avpop])==str or type(i[avurpop])==str or type(i[avbirthln])==str:
+            continue
+        else:
+            writer.writerow({
+                fld1:i[fld1], avpop:i[avpop], avurpop:i[avurpop], urrat:i[urrat], avbirthln:i[avbirthln]
+                })
+    
+
+
+'''
+testcountries = set(['Afghanistan', 'Albania', 'Algeria'])
+
+for i in testcountries:
+    print i, conv_pop[i]
+'''
+
+#Checks through the end of f2
+#count = 0
+#for k, v in conv_pop.items():
+#    if count < 2:
+#        print k, v
+#        count += 1
+
+
+#Checks for quotation marks in dictionary keys (there should be)
+def checkquotes(listodict):
+    for lent in listodict: #where 'lent' is a dictionary, not the index
+        for k in lent: #where i is a dictionary key
+            if k.startswith('"'):
+                return lent
+
