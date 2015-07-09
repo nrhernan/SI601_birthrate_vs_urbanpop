@@ -1,0 +1,49 @@
+#Opening and reading world regions csv file
+import csv
+from hw1_p1 import convert
+from hw1_p1 import f1
+from hw1_p1 import out_list_sort
+from hw1_p1 import fld1
+from hw1_p1 import avpop
+from hw1_p1 import avurpop
+from hw1_p1 import urrat
+from hw1_p1 import avbirthln
+
+
+freg = 'world_bank_regions.txt'
+reg_list = []
+with open(freg, 'rb') as regcsv:
+    rfield_names = ['Region', 'Subregion', 'Country Name']
+    reg_reader = csv.DictReader(regcsv, delimiter = '\t', quotechar='"', fieldnames=rfield_names)
+    reg_list = convert(reg_reader)
+
+#Converts a csv DictReader object to a dictionary of dictionaries, using specified field as the outer key
+
+
+#Takes a country name, spits out the appropriate region
+def find_reg(countryname):
+    country_set = set()
+    for listi in reg_list:
+        if listi[fld1] == countryname:
+            return listi['Region']
+        elif listi[fld1] != countryname: #Only adds a value to the 'country' set if the country doesn't match
+            country_set.add(listi[fld1])
+    if countryname not in country_set: #The key here was making sure the 'for' loop completely ran before comparing countryname to country_set
+        return 'No Region'
+        
+        
+for i in out_list_sort:
+    i['Region']=find_reg(i[fld1]) #Where 'i' is an individual country's dictionary
+
+with open('si601_hw1_step2_naomirh.csv', 'wb') as outcsv:
+    field_names = [fld1, 'Region', avpop, avurpop, urrat, avbirthln]
+    writer = csv.DictWriter(outcsv, fieldnames = field_names)
+    
+    writer.writeheader()
+    for i in out_list_sort:
+        if type(i[avpop])==str or type(i[avurpop])==str or type(i[avbirthln])==str:
+            continue
+        else:
+            writer.writerow({
+                fld1:i[fld1], 'Region':i['Region'], avpop:i[avpop], avurpop:i[avurpop], urrat:i[urrat], avbirthln:i[avbirthln]
+                })
